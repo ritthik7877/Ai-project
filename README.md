@@ -1,4 +1,4 @@
-# AI-Driven Financial Fraud Detection System — Model & Notebook
+# AI-Driven Financial Fraud Detection System 
 
 ## What's here
 ```
