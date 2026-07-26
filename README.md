@@ -70,9 +70,4 @@ To match the "GPT-3.5 integration" resume bullet, swap `build_analysis_summary()
 in `app.py` for a real LLM call using the same `raw` dict as prompt context —
 structurally a drop-in replacement, nothing else in the app changes.
 
-## Next steps to match the full resume bullet set
-1. ~~FastAPI serving layer~~ ✅ done (`app.py`)
-2. ~~Frontend~~ ✅ done (`frontend/index.html`, matches your reference screenshot)
-3. **GPT-based report generation** — replace the rule-based summary with a real LLM call (see above)
-4. **Deploy** — containerize with Docker, push to Render/Railway free tier for a live demo link + add a GitHub repo with the video demo
-# Ai-project
+
