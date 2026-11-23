@@ -1,73 +1,136 @@
-# AI-Driven Financial Fraud Detection System 
+# AI-Driven Financial Fraud Detection System
 
-## What's here
-```
-src/generate_data.py   # generates the synthetic transaction dataset
-src/features.py         # behavioral-anomaly feature engineering
-src/train.py             # XGBoost training + evaluation script (run directly)
-notebooks/fraud_detection.ipynb   # full walkthrough, already executed with outputs
-models/fraud_xgb.json             # trained model
-models/feature_columns.pkl        # column order needed for inference
-models/threshold.pkl              # decision threshold tuned for ~99% recall
-data/transactions_sample.csv      # 5k-row sample (regenerate full 1M via generate_data.py)
+[![GitHub repository](https://img.shields.io/badge/GitHub-Ai--project-181717?logo=github)](https://github.com/ritthik7877/Ai-project)
+
+This project demonstrates financial transaction fraud scoring with an XGBoost model. A FastAPI backend accepts a transaction, engineers model features, and returns a fraud probability, risk level, and rule-based explanation. A static HTML page provides the user interface.
+
+- **Repository:** [ritthik7877/Ai-project](https://github.com/ritthik7877/Ai-project)
+- **GitHub Pages:** [https://ritthik7877.github.io/Ai-project/](https://ritthik7877.github.io/Ai-project/)
+- **Architecture and workflows:** [SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md)
+
+## System Workflow
+
+```mermaid
+flowchart LR
+    U[User] --> UI[index.html]
+    UI -->|POST /predict| API[FastAPI app.py]
+    API --> V[Validate transaction request]
+    V --> F[src/features.py]
+    F --> M[Saved XGBoost model]
+    M --> T[Apply saved decision threshold]
+    T --> R[Fraud probability, risk level, explanation]
+    R --> UI
+
+    TR[src/train.py] --> D[Generate synthetic training data]
+    D --> FE[Feature engineering]
+    FE --> TR
+    TR --> AR[Save model and inference artifacts]
+    AR --> M
 ```
 
-## Quick start
+## Repository Layout
+
+```text
+Ai-project/
+├── .github/
+│   └── workflows/
+│       └── static.yml           # Deploys the repository to GitHub Pages
+├── app.py                       # FastAPI prediction API
+├── index.html                   # Static browser frontend
+├── src/
+│   ├── features.py              # Feature engineering used for training and inference
+│   └── train.py                 # Synthetic-data training and artifact export
+├── models/
+│   ├── fraud_xgb.json           # Trained XGBoost model
+│   ├── feature_columns.pkl      # Training-time input feature order
+│   └── threshold.pkl            # Fraud classification threshold
+└── README.md
+```
+
+## How It Works
+
+1. `src/train.py` generates a synthetic transaction dataset and labels fraud-like activity using account-balance, destination, amount, and transaction-velocity signals.
+2. `src/features.py` derives balance consistency, drained-balance, amount, time, velocity, and transaction-type features.
+3. The training script fits an XGBoost classifier, evaluates it, selects a threshold near the 95% recall target, and writes the model and inference artifacts to `models/`.
+4. `app.py` loads those artifacts when the API starts.
+5. The frontend submits transaction fields to `POST /predict`.
+6. The API engineers the same features used during training, aligns columns to the saved schema, scores the transaction, applies the saved threshold, and returns the result.
+
+The API also exposes `GET /health` for a basic health check.
+
+## Requirements
+
+Use Python 3.10 or later. Install the dependencies from the repository root:
+
 ```bash
-pip install xgboost scikit-learn pandas numpy matplotlib joblib
-cd src
-python generate_data.py   # writes data/transactions.csv (1M rows by default)
-python train.py           # trains, evaluates, saves model
+python -m venv .venv
 ```
-Or open `notebooks/fraud_detection.ipynb` for the full walkthrough with charts.
 
-## About the data
-No internet access was available to pull the real Kaggle dataset, so
-`generate_data.py` builds a **synthetic dataset structured like PaySim**
-(the well-known mobile-money fraud dataset: step/type/amount/balances),
-with the fraud pattern you described — *"account drained to $0 via
-unknown transfer"* — deliberately injected, plus realistic noise/overlap
-so legit and fraud cases aren't trivially separable.
-
-**To use real data instead:** download PaySim ("Synthetic Financial
-Datasets For Fraud Detection") or IEEE-CIS Fraud Detection from Kaggle,
-save as `data/transactions.csv` with the same column names, and rerun
-`train.py` — nothing else changes.
-
-## Results on this run
-- AUC: 1.0000, Precision: 1.0000, Recall: 0.9923, F1: 0.9961
-- Inference: ~2 ms/transaction (single-row predict)
-
-**Honest caveat:** these numbers are unusually high because
-`errorBalanceOrig`/`errorBalanceDest` (balance-consistency checks)
-dominate feature importance — this is a known property of PaySim-style
-data, not a training bug, but it means the score is optimistic. For a
-second, leakage-free benchmark to quote alongside this one, run the
-same pipeline against Kaggle's `Credit Card Fraud Detection` dataset
-(PCA-anonymized features) — expect AUC around 0.97–0.99 there, which
-is the more defensible number if asked about it in an interview or viva.
-
-## Running the full UI (backend + frontend)
+Activate the environment, then install:
 
 ```bash
-pip install fastapi uvicorn xgboost scikit-learn pandas numpy joblib
-python -m uvicorn app:app --reload --port 8000
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+
+# macOS/Linux
+source .venv/bin/activate
+
+python -m pip install fastapi uvicorn xgboost scikit-learn pandas numpy joblib
 ```
-Then just open `frontend/index.html` directly in your browser (double-click it,
-or right-click → Open With Browser). It calls `http://127.0.0.1:8000/predict`,
-so keep the uvicorn server running in a terminal while you use the page.
 
-Try the exact scenario from your reference screenshot to confirm it matches:
-Amount 99999, Hours Since Last Transaction 0.2, Transactions in Last 24h 45,
-New Destination Yes, Hour of Day 3, Old Balance Origin 100000, New Balance
-Origin 1, Old Balance Destination 0, New Balance Destination 99999,
-Transaction Type Transfer → should return **FRAUD, ~100% probability, HIGH RISK**.
+## Run Locally
 
-The "Analysis Summary" text is currently rule-based (built from the same
-signals the model uses — drained-balance ratio, new-destination flag, 24h
-transaction burst, time-since-last-transaction, transaction type, amount).
-To match the "GPT-3.5 integration" resume bullet, swap `build_analysis_summary()`
-in `app.py` for a real LLM call using the same `raw` dict as prompt context —
-structurally a drop-in replacement, nothing else in the app changes.
+Start the API from the repository root:
 
+```bash
+python -m uvicorn app:app --reload --host 127.0.0.1 --port 8000
+```
 
+Check that it is available at [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health). Then open `index.html` in a browser. The page currently sends requests to `http://127.0.0.1:8000/predict`, so the API must remain running on the same computer.
+
+The prediction endpoint accepts JSON with these fields:
+
+```json
+{
+  "amount": 99999,
+  "hoursSinceLastTransaction": 0.2,
+  "transactionsLast24h": 45,
+  "isNewDestination": true,
+  "hourOfDayInput": 3,
+  "oldbalanceOrg": 100000,
+  "newbalanceOrig": 1,
+  "oldbalanceDest": 0,
+  "newbalanceDest": 99999,
+  "type": "TRANSFER"
+}
+```
+
+`POST /predict` returns `isFraud`, `fraudProbability`, `riskLevel`, and `analysisSummary`.
+
+## Train the Model
+
+From the repository root:
+
+```bash
+python src/train.py
+```
+
+This uses generated synthetic data; it does not read a CSV dataset. It overwrites the three files in `models/`. The inference API requires those files to be present.
+
+## GitHub Pages Workflow
+
+The GitHub Actions workflow in `.github/workflows/static.yml` deploys the repository contents to GitHub Pages when a commit is pushed to `main`; it can also be started manually from the Actions tab. This publishes the static frontend, not the FastAPI service.
+
+**Hosted-page limitation:** `index.html` currently targets `http://127.0.0.1:8000/predict`. Therefore, the published page only works for a user who has the API running locally on their own computer. To make the hosted page available to everyone, deploy the API separately and change the frontend API URL to that public HTTPS endpoint. Do not expose a development server directly to the internet.
+
+## Notes and Limitations
+
+- The training data is randomly generated and uses synthetic labeling rules, not a real-world fraud dataset.
+- Reported metrics from this synthetic task are not evidence of production performance.
+- The API's `analysisSummary` is generated by hand-written rules; it does not call an LLM.
+- The current API enables permissive CORS. Restrict allowed origins before deploying the API publicly.
+- The saved Python pickle artifacts should only be loaded from a trusted source.
+
+## Contributing
+
+Changes pushed to `main` trigger the Pages deployment workflow. For local checks, start the API and verify `/health`, then submit a sample request to `/predict` and confirm the frontend displays the response.
